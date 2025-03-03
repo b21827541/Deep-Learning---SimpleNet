@@ -23,9 +23,8 @@ from torchvision import models, transforms
 from torchvision.models import Wide_ResNet50_2_Weights
 from tqdm import tqdm
 
-
+# Set seed for reproducability
 def seed_everything(seed=42):
-    """Set seeds for reproducibility"""
     torch.manual_seed(seed)
     np.random.seed(seed)
     if torch.cuda.is_available():
@@ -55,9 +54,9 @@ class FeatureExtractor(nn.Module):
         self.layer3 = backbone.layer3
         self.patch_size = 3  # as per paper
 
+    # Get neighbourhood feats as stated in paper Eq 1 & 2
+    # Return tensor shape B, C, H, W
     def get_neighborhood_features(self, feature_map):
-        """Extract neighborhood features as per paper Equations 1 & 2.
-           Returns a tensor of shape [B, C, H, W]."""
         B, C, H, W = feature_map.shape
         pad = self.patch_size // 2
         padded = F.pad(feature_map, (pad, pad, pad, pad), mode='reflect')
@@ -68,6 +67,8 @@ class FeatureExtractor(nn.Module):
         local_features = patches.mean(dim=2)
         return local_features
 
+    # Forward pass
+    # Get only layer 2 and 3 feats as per the paper
     def forward(self, x):
         # Pass through the backbone layers.
         x = self.conv1(x)
@@ -132,9 +133,8 @@ class Discriminator(nn.Module):
         return x
 
 
-# A helper to initialize models and freeze the feature extractor parameters.
+# A helper to initialize models and freeze the feature extractor parameters for training.
 def initialize_models(device):
-    """Initialize models for training"""
     # Load pre-trained Wide ResNet-50-2 from torchvision
     backbone = models.wide_resnet50_2(weights=Wide_ResNet50_2_Weights.IMAGENET1K_V1)
 
@@ -158,9 +158,8 @@ def initialize_models(device):
     return feature_extractor, adapter, discriminator
 
 
-# Image transforms
+# Get Image transforms pipeline
 def get_transform():
-    """Get image transformation pipeline"""
     return transforms.Compose([
         transforms.Resize((256, 256)),
         transforms.CenterCrop(224),
@@ -172,15 +171,13 @@ def get_transform():
 
 # Dataset classes for DDP
 class MVTecDataset(Dataset):
-    """MVTec dataset class"""
-
     def __init__(self, base_path, category, split='train', transform=None):
         """
         Args:
-            base_path (Path): Root directory of MVTec dataset
-            category (str): Category name (e.g., 'bottle')
-            split (str): 'train' or 'test'
-            transform: Image transformations
+            base_path (Path) : Root directory of MVTec dataset
+            category (str) : Category name (e.g., 'bottle')
+            split (str) : 'train' or 'test'
+            transform : Image transformations
         """
         self.base_path = base_path
         self.category = category
@@ -190,8 +187,8 @@ class MVTecDataset(Dataset):
         # Get image paths and labels
         self.samples = self._load_dataset()
 
+    # Load the dataset and split
     def _load_dataset(self):
-        """Load dataset for a specific category and split."""
         path = self.base_path / self.category / self.split
 
         # Get all image paths
@@ -226,9 +223,15 @@ class MVTecDataset(Dataset):
 
         return img, label
 
-
+# Create train and test dataloaders for a category with DDP support
 def get_dataloaders(base_path, category, batch_size=4, world_size=1, rank=0):
-    """Create train and test dataloaders for a category with DDP support."""
+    """
+    base_path (Path) : Root directory of MVTec dataset
+    category (str) : Category name (e.g., 'bottle')
+    batch_size (int) : Batch size
+    world_size (int) : World size
+    rank (int) : Rank
+    """
     transform = get_transform()
 
     # Create datasets
@@ -272,11 +275,12 @@ def get_dataloaders(base_path, category, batch_size=4, world_size=1, rank=0):
 
     return train_loader, test_loader, train_sampler
 
-
+# Pool and combine features from two layers
 def pool_and_combine_features(feats):
-    """Pool and combine features from two layers.
-       Expects feats to be a tuple: (layer2_features, layer3_features),
-       each of shape [B, C, H, W]."""
+    """
+    Expects feats to be a tuple: (layer2_features, layer3_features),
+    each of shape [B, C, H, W]
+    """
     layer2_feat = feats[0]
     layer3_feat = feats[1]
 
@@ -293,24 +297,25 @@ def pool_and_combine_features(feats):
     combined = torch.cat([pooled_layer2, resized_layer3], dim=1)
     return combined
 
-
+# Flatten a feature map from [B, C, H, W] to [B*H*W, C]
 def flatten_features(feat):
-    """Flatten a feature map from [B, C, H, W] to [B*H*W, C]"""
     B, C, H, W = feat.shape
     return feat.permute(0, 2, 3, 1).reshape(-1, C)
 
-
+# Compute truncated L1 loss with correct thresholds
 def compute_loss(normal_pred, anomalous_pred, th_pos=0.5, th_neg=-0.5):
     """
-    Compute truncated L1 loss with correct thresholds
+    normal_pred : (B, C, H, W)
+    anomalous_pred : (B, C, H, W)
+    th_pos : float
+    th_neg : float
     """
     loss_normal = torch.clamp(th_pos - normal_pred, min=0)
     loss_anomalous = torch.clamp(-th_neg + anomalous_pred, min=0)
     return (loss_normal.mean() + loss_anomalous.mean())
 
-
+# Add Gaussian noise to embeddings
 def inject_noise(embedding, noise_std=0.015):
-    """Add Gaussian noise to embeddings"""
     noise = torch.randn_like(embedding) * noise_std
     return embedding + noise
 
