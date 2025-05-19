@@ -1,7 +1,7 @@
 # SimpleNet Implementation with PyTorch and DDP
 
 ## Project Overview
-This repository contains my implementation of the [SimpleNet paper](https://arxiv.org/abs/1608.06037) using PyTorch and Distributed Data Parallel (DDP) for efficient multi-GPU training. SimpleNet is a lightweight convolutional neural network architecture that achieves competitive accuracy.
+This repository contains my implementation of the [SimpleNet paper](https://arxiv.org/abs/1608.06037) using PyTorch and Distributed Data Parallel (DDP) for efficient multi-GPU training. SimpleNet is a lightweight convolutional neural network architecture for image anomaly detection and localization.
 
 ## Hardware & Implementation Details
 I utilized a multi-GPU setup for distributed training:
@@ -13,9 +13,10 @@ The implementation leverages PyTorch's Distributed Data Parallel (DDP) framework
 
 ## Citation
 ```bibtex
-@article{hasanpour2016lets,
-  title={Lets keep it simple, Using simple architectures to outperform deeper and more complex architectures},
-  author={Hasanpour, Seyyed Hossein and Rouhani, Mohammad and Fayyaz, Mohsen and Sabokrou, Mohammad},
-  journal={arXiv preprint arXiv:1608.06037},
-  year={2016}
+@inproceedings{liu2023simplenet,
+  title={SimpleNet: A Simple Network for Image Anomaly Detection and Localization},
+  author={Liu, Zhikang and Zhou, Yiming and Xu, Yuansheng and Wang, Zilei},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  pages={20402--20411},
+  year={2023}
 }
